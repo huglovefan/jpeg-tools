@@ -62,6 +62,20 @@ _Static_assert(!ispow2(15), "");
 _Static_assert( ispow2(16), "");
 _Static_assert(!ispow2(17), "");
 
+// slightly-faster division for when b is 1, 2 or 4 (jpeg sampling factors)
+#if WITH_D
+ #define divide_by_sampling_factor(a, b) \
+ ({ \
+	__auto_type rv_ = ((a)>>((b)>>1)); \
+	assert(rv_ == (a)/(b)); \
+	rv_; \
+ })
+#else
+ #define divide_by_sampling_factor(a, b) ((a)>>((b)>>1))
+#endif
+
+// -----------------------------------------------------------------------------
+
 struct jc {
 	struct jpeg_compress_struct dstinfo;
 	jvirt_barray_ptr *dst_coef_arrays;
@@ -236,15 +250,6 @@ static const char *jc_check_supported(struct jc *self, j_decompress_ptr img)
 		return "image uses DCT scaling";
 #endif
 
-	// these are assumed to be powers of two, might as well check them
-D	assert(img->max_h_samp_factor > 0 && ispow2(img->max_h_samp_factor));
-D	assert(img->max_v_samp_factor > 0 && ispow2(img->max_v_samp_factor));
-	for (int ci = 0; ci < img->num_components; ci++) {
-		jpeg_component_info *compptr = &img->comp_info[ci];
-D		assert(compptr->h_samp_factor > 0 && ispow2(compptr->h_samp_factor));
-D		assert(compptr->v_samp_factor > 0 && ispow2(compptr->v_samp_factor));
-	}
-
 	return NULL;
 }
 
@@ -315,8 +320,8 @@ static bool jc_alloc_output(struct jc *self, struct jc_image *image)
 
 	for (int ci = 0; ci < srcinfo->num_components; ci++) {
 		jpeg_component_info *compptr = &srcinfo->comp_info[ci];
-		int width_in_blocks = jdiv_round_up(w, (srcinfo->max_h_samp_factor>>(compptr->h_samp_factor>>1))*DCTSIZE);
-		int height_in_blocks = jdiv_round_up(h, (srcinfo->max_v_samp_factor>>(compptr->v_samp_factor>>1))*DCTSIZE);
+		int width_in_blocks = jdiv_round_up(w, divide_by_sampling_factor(srcinfo->max_h_samp_factor, compptr->h_samp_factor)*DCTSIZE);
+		int height_in_blocks = jdiv_round_up(h, divide_by_sampling_factor(srcinfo->max_v_samp_factor, compptr->v_samp_factor)*DCTSIZE);
 
 		// check that the size calculation matches the original
 
@@ -572,8 +577,8 @@ D	assert(access_virt_barray != NULL); // double free
 		jpeg_component_info *compptr = &self->dstinfo.comp_info[ci];
 
 		// how many 8x8 blocks in one subsampled block
-		int x_howmany = srcinfo0->max_h_samp_factor>>(compptr->h_samp_factor>>1);
-		int y_howmany = srcinfo0->max_v_samp_factor>>(compptr->v_samp_factor>>1);
+		int x_howmany = divide_by_sampling_factor(srcinfo0->max_h_samp_factor, compptr->h_samp_factor);
+		int y_howmany = divide_by_sampling_factor(srcinfo0->max_v_samp_factor, compptr->v_samp_factor);
 
 		// shift amount for converting between 8x8 and subsampled block sizes
 		int x_howmany_s = x_howmany>>1;

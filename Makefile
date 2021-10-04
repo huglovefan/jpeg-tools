@@ -1,5 +1,7 @@
 CC := clang
-CFLAGS ?= -O2 -g3 -march=native -mno-tbm -mno-xop
+CFLAGS ?= -O2 -g3
+
+OSNAME := $(shell uname -o)
 
 LIBJPEG_PKG    ?= libjpeg
 LIBJPEG_CFLAGS ?= $(shell pkg-config --cflags $(LIBJPEG_PKG))
@@ -8,10 +10,19 @@ CFLAGS += $(LIBJPEG_CFLAGS)
 LDLIBS += $(LIBJPEG_LIBS)
 
 CFLAGS += -std=gnu90
-CFLAGS += -fPIC
 
-CPPFLAGS += -D_FORTIFY_SOURCE=3
-CFLAGS += -fstack-protector-strong
+EXEEXT :=
+DLLEXT := .so
+ifneq (,$(findstring Msys,$(OSNAME)))
+ EXEEXT := .exe
+ DLLEXT := .dll
+endif
+
+ifeq (,$(findstring Msys,$(OSNAME)))
+ CFLAGS += -fPIC
+ CPPFLAGS += -D_FORTIFY_SOURCE=3
+ CFLAGS += -fstack-protector-strong
+endif
 
 CFLAGS += -ffunction-sections
 CFLAGS += -fdata-sections
@@ -41,7 +52,11 @@ ifneq ($(D),)
  CPPFLAGS += -DWITH_D=1
 endif
 
-all: jcanvas.so scramble isgrayscale jresave jsort
+all: jcanvas$(DLLEXT) scramble$(EXEEXT) jsort$(EXEEXT)
+
+ifeq (,$(findstring Msys,$(OSNAME)))
+ all: isgrayscale$(EXEEXT) jresave$(EXEEXT)
+endif
 
 # ---
 
@@ -51,22 +66,22 @@ scramble.o: scramble.c jcanvas.h
 
 # ---
 
-scramble: LDLIBS += -ljansson
-scramble: jcanvas.o scramble.o
+scramble$(EXEEXT): LDLIBS += -ljansson
+scramble$(EXEEXT): jcanvas.o scramble.o
 	$(CC) $(LDFLAGS) $^ -o $@ $(LDLIBS)
 
-isgrayscale: isgrayscale.o
+isgrayscale$(EXEEXT): isgrayscale.o
 	$(CC) $(LDFLAGS) $^ -o $@ $(LDLIBS)
 
-jresave: jresave.o
+jresave$(EXEEXT): jresave.o
 	$(CC) $(LDFLAGS) $^ -o $@ $(LDLIBS)
 
-jsort: jsort.o
+jsort$(EXEEXT): jsort.o
 	$(CC) $(LDFLAGS) $^ -o $@ $(LDLIBS)
 
 # ---
 
-jcanvas.so: jcanvas.o
+jcanvas$(DLLEXT): jcanvas.o
 	$(CC) -shared $(LDFLAGS) $^ -o $@ $(LDLIBS)
 
 # ---
@@ -77,7 +92,7 @@ jcanvas.so: jcanvas.o
 # ---
 
 clean:
-	@rm -fv -- *.o *.so *.profdata *.profraw scramble isgrayscale jresave
+	@rm -fv -- *.o *.so *.profdata *.profraw scramble$(EXEEXT) isgrayscale$(EXEEXT) jresave$(EXEEXT) jsort$(EXEEXT) jcanvas$(DLLEXT)
 
 watch:
 	ls jcanvas.[ch] isgrayscale.[ch] jresave.[ch] scramble.c | entr -c make
@@ -85,4 +100,4 @@ watch:
 test:
 	luajit test.lua
 autotest:
-	ls jcanvas.so test.lua | entr -cr make test
+	ls jcanvas$(DLLEXT) test.lua | entr -cr make test

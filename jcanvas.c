@@ -74,6 +74,18 @@ _Static_assert(!ispow2(17), "");
  #define divide_by_sampling_factor(a, b) ((a)>>((b)>>1))
 #endif
 
+#if defined(_WIN32)
+static void *reallocarray(void *p, size_t count, size_t size)
+{
+	size_t bytes;
+
+	if L (!__builtin_mul_overflow(count, size, &bytes))
+		return realloc(p, bytes);
+	else
+		return NULL;
+}
+#endif
+
 // -----------------------------------------------------------------------------
 
 struct jc {
@@ -148,7 +160,7 @@ struct jc *jc_new(const char *savepath, int w, int h)
 	if U (!(self = calloc(1, sizeof(*self))))
 		return NULL;
 
-	if U (!(f = fopen(savepath, "w"))) {
+	if U (!(f = fopen(savepath, "wb"))) {
 		free(self);
 		return NULL;
 	}
@@ -182,7 +194,7 @@ int jc_add_image(struct jc *self, const char *path)
 	if U (!self)
 		return -1;
 
-	if U (!(f = fopen(path, "r")))
+	if U (!(f = fopen(path, "rb")))
 		return -1;
 
 	if U (!(image = jc_alloc_next_image(self))) {

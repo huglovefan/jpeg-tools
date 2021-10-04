@@ -68,8 +68,8 @@ class JPEGCanvas:
 	# width, height: dimensions of the output image, or -1 to copy them from the first added image
 	def __init__(self, out_path, width = -1, height = -1):
 		# too-big ones will fail to allocate in add_image()
-		assert width >= 1 and width < 0xffff
-		assert height >= 1 and height < 0xffff
+		assert width == -1 or width >= 1 and width < 0xffff
+		assert height == -1 or height >= 1 and height < 0xffff
 		self.canvas = libjpegtools.jc_new(out_path.encode("utf-8"), width, height)
 		if self.canvas == ffi.NULL:
 			# - allocation failed

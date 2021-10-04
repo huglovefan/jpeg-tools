@@ -52,7 +52,11 @@ ifneq ($(D),)
  CPPFLAGS += -DWITH_D=1
 endif
 
-all: jcanvas$(DLLEXT) scramble$(EXEEXT) jsort$(EXEEXT)
+# ---
+
+default: jpegtools$(DLLEXT)
+
+all: jcanvas$(DLLEXT) jpegtools$(DLLEXT) scramble$(EXEEXT) jsort$(EXEEXT)
 
 ifeq (,$(findstring Msys,$(OSNAME)))
  all: isgrayscale$(EXEEXT) jresave$(EXEEXT)
@@ -82,6 +86,9 @@ jsort$(EXEEXT): jsort.o
 # ---
 
 jcanvas$(DLLEXT): jcanvas.o
+	$(CC) -shared $(LDFLAGS) $^ -o $@ $(LDLIBS)
+
+jpegtools$(DLLEXT): jcanvas.o isgrayscale.o jresave.o
 	$(CC) -shared $(LDFLAGS) $^ -o $@ $(LDLIBS)
 
 # ---

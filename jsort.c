@@ -46,8 +46,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	infile = fopen(argv[1], "r");
-	outfile = fopen(argv[2], "w");
+	infile = fopen(argv[1], "rb");
+	outfile = fopen(argv[2], "wb");
 
 	if (!infile) {
 		perror("failed to open input file");

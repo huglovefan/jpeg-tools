@@ -36,7 +36,7 @@ enum grayscale_status isgrayscale(const char *path)
 		decompress_started,
 	} state = state_init;
 
-	f = fopen(path, "r");
+	f = fopen(path, "rb");
 	if U (!f) {
 		perror("isgrayscale: failed to open input file");
 		return gss_error;

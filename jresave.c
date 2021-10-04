@@ -47,8 +47,8 @@ bool resave(const char *inpath, const char *outpath, const struct resave_opts *o
 	memcpy(tmpoutpath, outpath, outpathlen);
 	memcpy(tmpoutpath+outpathlen, TMPSUF, sizeof(TMPSUF));
 
-	infile = fopen(inpath, "r");
-	outfile = fopen(tmpoutpath, "w");
+	infile = fopen(inpath, "rb");
+	outfile = fopen(tmpoutpath, "wb");
 
 	if U (!infile) {
 		perror("resave: failed to open input file");
@@ -116,6 +116,13 @@ bool resave(const char *inpath, const char *outpath, const struct resave_opts *o
 	fclose(infile);
 	fclose(outfile);
 
+#if defined(_WIN32)
+	// rename can't overwrite on windows, need to delete the old one first
+	if (unlink(outpath) == -1) {
+		if (errno != ENOENT)
+			perror("resave: unlink");
+	}
+#endif
 	if (rename(tmpoutpath, outpath) == -1) {
 		perror("resave: rename");
 		if (unlink(tmpoutpath) == -1)

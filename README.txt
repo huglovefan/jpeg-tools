@@ -23,18 +23,13 @@ system requirements:
 msys2 howto:
 - get it from msys2.org, make sure to launch it from the shortcut that says "MSYS2 MinGW 64-bit"
 - run the following commands:
-  $ pacman -S git make pkg-config mingw-w64-x86_64-clang mingw-w64-x86_64-libjpeg-turbo mingw-w64-x86_64-jansson
+  $ pacman -S git make pkg-config mingw-w64-x86_64-clang mingw-w64-x86_64-libjpeg-turbo
   $ git clone https://github.com/huglovefan/jpeg-tools
   $ cd jpeg-tools/
   $ git checkout extra
   $ make
-  $ cp -t. /mingw64/bin/libjpeg-8.dll /mingw64/bin/libjansson-4.dll /mingw64/bin/libwinpthread-1.dll
-- test if it works (should create out.jpg):
-  $ cat data/decode.json | ./scramble.exe data/enc.jpg out.jpg
-- same command in cmd.exe:
-  > type data\decode.json | scramble.exe data\enc.jpg out.jpg
+  $ cp -t. /mingw64/bin/libjpeg-8.dll /mingw64/bin/libwinpthread-1.dll
 
-the python cffi example should work in python for windows (outside msys) using the dll that was just compiled
-to test it, do one of the above commands but with "python scranblw.py" instead of scramble.exe
+there should now be a file named jpegtools.dll. test if it works by running "python jpegtools.py" using python for windows (outside msys). it should print "done" and create a file named out.jpg on success
 
-the system DLLs copied in the howto need to be in the same directory when using them outside an msys shell
+the system DLLs copied in the howto need to be present in the current directory when using jpegtools outside an msys shell

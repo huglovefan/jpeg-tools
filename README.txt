@@ -33,3 +33,11 @@ msys2 howto:
 there should now be a file named jpegtools.dll. test if it works by running "python jpegtools.py" using python for windows (outside msys). it should print "done" and create a file named out.jpg on success
 
 the system DLLs copied in the howto need to be present in the current directory when using jpegtools outside an msys shell
+
+---
+
+to update an already-cloned copy of the repo:
+  $ cd jpeg-tools/
+  $ git pull
+  $ make clean
+  $ make

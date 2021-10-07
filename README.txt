@@ -41,3 +41,5 @@ to update an already-cloned copy of the repo:
   $ git pull
   $ make clean
   $ make
+
+if git pull fails, do "git reset --hard origin/extra" (might nuke any local modifications)

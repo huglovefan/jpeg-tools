@@ -234,6 +234,50 @@ int jc_add_image(struct jc *self, const char *path)
 	return self->images_cnt++;
 }
 
+int jc_add_image_from_memory(struct jc *self, const unsigned char *buf, size_t sz)
+{
+	struct jc_image *image;
+	const char *reason;
+
+	if U (!self)
+		return -1;
+
+	if U (!buf)
+		return -1;
+
+	if U (!(image = jc_alloc_next_image(self)))
+		return -1;
+
+	image->srcinfo.err = &self->err.jerr;
+	jpeg_create_decompress(&image->srcinfo);
+	jpeg_mem_src(&image->srcinfo, buf, sz);
+
+	JC_TRY(self) {
+		jpeg_read_header(&image->srcinfo, /* require_image */ TRUE);
+	} JC_CATCH(self) {
+		jpeg_destroy_decompress(&image->srcinfo);
+		return -1;
+	} JC_ENDTRY(self);
+
+	image->src_coef_arrays = jpeg_read_coefficients(&image->srcinfo);
+	jpeg_mem_src(&image->srcinfo, (const unsigned char *)"", 1);
+
+	if U ((reason = jc_check_supported(self, &image->srcinfo)) ||
+	      (self->images_cnt > 0 && (reason = jc_check_compatible(self, &self->images[0].srcinfo, &image->srcinfo)))) {
+		jpeg_destroy_decompress(&image->srcinfo);
+		return -1;
+	}
+
+	if (self->images_cnt == 0) {
+		if U (!jc_alloc_output(self, image)) {
+			jpeg_destroy_decompress(&image->srcinfo);
+			return -1;
+		}
+	}
+
+	return self->images_cnt++;
+}
+
 static struct jc_image *jc_alloc_next_image(struct jc *self)
 {
 	struct jc_image *newimages;

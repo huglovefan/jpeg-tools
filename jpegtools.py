@@ -28,6 +28,7 @@ struct jc_info_struct {
 
 struct jc *jc_new(const char *savepath, int w, int h);
 int jc_add_image(struct jc *self, const char *path);
+int jc_add_image_from_memory(struct jc *self, const unsigned char *buf, size_t sz);
 bool jc_get_info(struct jc *self, int idx, struct jc_info_struct *info_out);
 bool jc_drawimage(struct jc *self, int idx,
 	unsigned destX, unsigned destY,
@@ -83,6 +84,19 @@ class JPEGCanvas:
 		idx = libjpegtools.jc_add_image(self.canvas, in_path.encode("utf-8"))
 		if idx == -1:
 			# - opening or reading the input image failed
+			# - image isn't compatible with previously added ones
+			# - allocating the output image failed
+			raise Exception("jc_add_image failed")
+		return idx
+
+	# adds an input image to this JPEGCanvas instance
+	# returns a numeric id that can be used to refer to it in the other methods
+	# buf: buffer containing the image file (bytes or bytearray)
+	# sz: size of buf in bytes
+	def add_image_from_memory(self, buf, sz):
+		idx = libjpegtools.jc_add_image_from_memory(self.canvas, buf, sz)
+		if idx == -1:
+			# - reading the input image failed
 			# - image isn't compatible with previously added ones
 			# - allocating the output image failed
 			raise Exception("jc_add_image failed")
@@ -154,7 +168,13 @@ def resave_optimized(path):
 def scramble(infile, outfile, ops, width = -1, height = -1, print_error = False):
 	try:
 		jc = JPEGCanvas(outfile, width, height)
-		idx = jc.add_image(infile)
+		ixd = -1
+		if isinstance(infile, str):
+			idx = jc.add_image(infile)
+		elif isinstance(infile, bytes) or isinstance(infile, bytearray):
+			idx = jc.add_image_from_memory(infile, len(infile))
+		else:
+			raise Exception("invalid input file")
 		for (dx, dy, sx, sy, w, h) in ops:
 			jc.drawimage(idx, dx, dy, sx, sy, w, h)
 			# PIL equivalent: dst.paste(src.crop((sx, sy, sx+w, sy+h)), (dx, dy))
@@ -178,7 +198,8 @@ def scramble(infile, outfile, ops, width = -1, height = -1, print_error = False)
 if __name__ == "__main__":
 	# do the example image in the jpeg-tools repo
 	decode = json.load(open("data/decode.json"))
-	if not scramble("data/enc.jpg", "out.jpg", decode, 700, 394, True):
+	#if not scramble("data/enc.jpg", "out.jpg", decode, 700, 394, True):
+	if not scramble(open("data/enc.jpg", "rb").read(), "out.jpg", decode, 700, 394, True):
 		print("something happened :(")
 		sys.exit(1)
 	print("done")

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 
 enum jc_special_idx {
 	JC_SELF = -2,
@@ -19,6 +20,7 @@ struct jc_info_struct {
 
 struct jc *jc_new(const char *savepath, int w, int h);
 int jc_add_image(struct jc *self, const char *path);
+int jc_add_image_from_memory(struct jc *self, const unsigned char *buf, size_t sz);
 bool jc_get_info(struct jc *self, int idx, struct jc_info_struct *info_out);
 bool jc_drawimage(struct jc *self, int idx,
 	unsigned destX, unsigned destY,

@@ -24,16 +24,50 @@ static void resave_error_handler(j_common_ptr cinfo)
 	longjmp(*(jmp_buf *)cinfo->client_data, 1);
 }
 
-#define TMPSUF ".tmp"
+struct input {
+	enum {
+		input_path,
+		input_buf,
+	} which;
+	union {
+		const char *path;
+		struct {
+			const char *p;
+			size_t sz;
+		} buf;
+	} u;
+};
+
+static bool resave_real(struct input *in, const char *outpath, const struct resave_opts *opts);
 
 bool resave(const char *inpath, const char *outpath, const struct resave_opts *opts)
+{
+	return resave_real(
+		&(struct input){.which = input_path, .u = {.path = inpath}},
+		outpath,
+		opts
+	);
+}
+
+bool resave_mem(const char *buf, size_t sz, const char *outpath, const struct resave_opts *opts)
+{
+	return resave_real(
+		&(struct input){.which = input_buf, .u = {.buf = {.p = buf, .sz = sz}}},
+		outpath,
+		opts
+	);
+}
+
+#define TMPSUF ".tmp"
+
+static bool resave_real(struct input *in, const char *outpath, const struct resave_opts *opts)
 {
 	struct jpeg_decompress_struct srcinfo;
 	struct jpeg_compress_struct dstinfo;
 	struct jpeg_error_mgr jerr;
 	jvirt_barray_ptr *src_coef_arrays;
 	jmp_buf catch;
-	FILE *infile, *outfile;
+	FILE *infile = NULL, *outfile;
 	size_t outpathlen;
 	char *tmpoutpath;
 	volatile enum {
@@ -47,16 +81,23 @@ bool resave(const char *inpath, const char *outpath, const struct resave_opts *o
 	memcpy(tmpoutpath, outpath, outpathlen);
 	memcpy(tmpoutpath+outpathlen, TMPSUF, sizeof(TMPSUF));
 
-	infile = fopen(inpath, "rb");
-	outfile = fopen(tmpoutpath, "wb");
-
-	if U (!infile) {
-		perror("resave: failed to open input file");
-		return false;
+	switch (in->which) {
+	case input_path:
+		infile = fopen(in->u.path, "rb");
+		if U (!infile) {
+			perror("resave: failed to open input file");
+			return false;
+		}
+		break;
+	case input_buf:
+		break;
 	}
+
+	outfile = fopen(tmpoutpath, "wb");
 	if U (!outfile) {
 		perror("resave: failed to open output file");
-		fclose(infile);
+		if (infile)
+			fclose(infile);
 		return false;
 	}
 
@@ -77,14 +118,22 @@ bool resave(const char *inpath, const char *outpath, const struct resave_opts *o
 		case state_init:
 			break;
 		}
-		fclose(infile);
+		if (infile)
+			fclose(infile);
 		fclose(outfile);
 		return false;
 	}
 
 	jpeg_create_decompress(&srcinfo);
 	state = created_decompress_only;
-	jpeg_stdio_src(&srcinfo, infile);
+	switch (in->which) {
+	case input_path:
+		jpeg_stdio_src(&srcinfo, infile);
+		break;
+	case input_buf:
+		jpeg_mem_src(&srcinfo, (const unsigned char *)in->u.buf.p, in->u.buf.sz);
+		break;
+	}
 	jpeg_read_header(&srcinfo, TRUE);
 	src_coef_arrays = jpeg_read_coefficients(&srcinfo);
 
@@ -113,7 +162,8 @@ bool resave(const char *inpath, const char *outpath, const struct resave_opts *o
 	jpeg_destroy_decompress(&srcinfo);
 	state = state_init;
 
-	fclose(infile);
+	if (infile)
+		fclose(infile);
 	fclose(outfile);
 
 #if defined(_WIN32)

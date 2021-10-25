@@ -20,11 +20,41 @@ static void isgrayscale_error_handler(j_common_ptr cinfo)
 	longjmp(*(jmp_buf *)cinfo->client_data, 1);
 }
 
+struct input {
+	enum {
+		input_path,
+		input_buf,
+	} which;
+	union {
+		const char *path;
+		struct {
+			const char *p;
+			size_t sz;
+		} buf;
+	} u;
+};
+
+static enum grayscale_status isgrayscale_real(const struct input *in);
+
 enum grayscale_status isgrayscale(const char *path)
+{
+	return isgrayscale_real(
+		&(struct input){.which = input_path, .u = {.path = path}}
+	);
+}
+
+enum grayscale_status isgrayscale_mem(const char *buf, size_t sz)
+{
+	return isgrayscale_real(
+		&(struct input){.which = input_buf, .u = {.buf = {.p = buf, .sz = sz}}}
+	);
+}
+
+static enum grayscale_status isgrayscale_real(const struct input *in)
 {
 	struct jpeg_decompress_struct cinfo;
 	struct jpeg_error_mgr jerr;
-	FILE *f;
+	FILE *f = NULL;
 	unsigned char **bufs;
 	int output_height, output_width;
 	unsigned error = 0;
@@ -36,10 +66,16 @@ enum grayscale_status isgrayscale(const char *path)
 		decompress_started,
 	} state = state_init;
 
-	f = fopen(path, "rb");
-	if U (!f) {
-		perror("isgrayscale: failed to open input file");
-		return gss_error;
+	switch (in->which) {
+	case input_path:
+		f = fopen(in->u.path, "rb");
+		if U (!f) {
+			perror("isgrayscale: failed to open input file");
+			return gss_error;
+		}
+		break;
+	case input_buf:
+		break;
 	}
 
 	cinfo.err = jpeg_std_error(&jerr);
@@ -60,24 +96,35 @@ enum grayscale_status isgrayscale(const char *path)
 		case state_init:
 			break;
 		}
-		fclose(f);
+		if (f)
+			fclose(f);
 		return gss_error;
 	}
 
 	jpeg_create_decompress(&cinfo);
 	state = decompress_created;
 
-	jpeg_stdio_src(&cinfo, f);
+	switch (in->which) {
+	case input_path:
+		jpeg_stdio_src(&cinfo, f);
+		break;
+	case input_buf:
+		jpeg_mem_src(&cinfo, (const unsigned char *)in->u.buf.p, in->u.buf.sz);
+		break;
+	}
+
 	jpeg_read_header(&cinfo, TRUE);
 
 	if U (cinfo.jpeg_color_space == JCS_GRAYSCALE) {
-		fclose(f);
+		if (f)
+			fclose(f);
 		return gss_yes;
 	}
 
 	if U (cinfo.out_color_space != JCS_RGB) {
 		fprintf(stderr, "isgrayscale: unsupported color space\n");
-		fclose(f);
+		if (f)
+			fclose(f);
 		return gss_error;
 	}
 
@@ -124,7 +171,8 @@ enum grayscale_status isgrayscale(const char *path)
 	state = state_init;
 	jpeg_destroy_decompress(&cinfo);
 
-	fclose(f);
+	if (f)
+		fclose(f);
 
 	return (error == 0) ? gss_yes : gss_no;
 }

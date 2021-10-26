@@ -67,6 +67,7 @@ endif
 
 isgrayscale.o: isgrayscale.c isgrayscale.h
 jcanvas.o: jcanvas.c jcanvas.h
+jinfo.o: jinfo.c jinfo.h
 scramble.o: scramble.c jcanvas.h
 
 # ---
@@ -89,7 +90,7 @@ jsort$(EXEEXT): jsort.o
 jcanvas$(DLLEXT): jcanvas.o
 	$(CC) -shared $(LDFLAGS) $^ -o $@ $(LDLIBS)
 
-jpegtools$(DLLEXT): jcanvas.o isgrayscale.o jresave.o
+jpegtools$(DLLEXT): jcanvas.o isgrayscale.o jresave.o jinfo.o
 	$(CC) -shared $(LDFLAGS) $^ -o $@ $(LDLIBS)
 
 # ---
@@ -103,7 +104,7 @@ clean:
 	@rm -fv -- *.o *.so *.profdata *.profraw scramble$(EXEEXT) isgrayscale$(EXEEXT) jresave$(EXEEXT) jsort$(EXEEXT) jcanvas$(DLLEXT)
 
 watch:
-	ls jcanvas.[ch] isgrayscale.[ch] jresave.[ch] scramble.c | entr -c make
+	ls jcanvas.[ch] isgrayscale.[ch] jresave.[ch] jinfo.[ch] scramble.c | entr -c make
 
 test:
 	luajit test.lua
